@@ -4,25 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  landlordNavItems,
+  tenantNavItems,
+  type ProfileRole,
+} from "@/src/lib/navigation";
 
 type Profile = {
   id: string;
   email: string | null;
-  role: "landlord" | "tenant" | null;
+  role: ProfileRole | null;
 };
-
-const landlordNavItems = [
-  { href: "/dashboard/properties", label: "Property management" },
-  { href: "/messages", label: "Messages" },
-  { href: "/settings", label: "Account settings" },
-];
-
-const tenantNavItems = [
-  { href: "/properties", label: "Browse properties" },
-  { href: "/favorites", label: "Saved homes" },
-  { href: "/messages", label: "Messages" },
-  { href: "/settings", label: "Account settings" },
-];
 
 export default function Dashboard() {
   const router = useRouter();
@@ -139,8 +131,22 @@ export default function Dashboard() {
 
     const newRole = profile.role === "landlord" ? "tenant" : "landlord";
 
-    await supabase.from("profiles").update({ role: newRole }).eq("id", profile.id);
-    window.location.reload();
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ role: newRole })
+      .eq("id", profile.id);
+
+    if (updateError) {
+      alert(updateError.message);
+      return;
+    }
+
+    setProfile({ ...profile, role: newRole });
+    window.dispatchEvent(
+      new CustomEvent("rentify-profile-role-change", {
+        detail: { role: newRole },
+      })
+    );
   };
 
   if (loading) {
@@ -185,7 +191,10 @@ export default function Dashboard() {
         </div>
 
         {profile?.role === "landlord" && (
-          <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <section
+            id="analytics"
+            className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
+          >
             <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -219,7 +228,7 @@ export default function Dashboard() {
                   <p className="text-sm text-neutral-500">Monthly revenue</p>
                   <p className="mt-2 text-2xl font-bold">NGN 0</p>
                 </div>
-                <div className="rounded-md bg-neutral-50 p-4">
+                <div id="tenants" className="rounded-md bg-neutral-50 p-4">
                   <p className="text-sm text-neutral-500">Active tenants</p>
                   <p className="mt-2 text-2xl font-bold">0</p>
                 </div>
@@ -230,7 +239,10 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+            <div
+              id="add-listing"
+              className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
+            >
               <h2 className="text-xl font-semibold">Add listing</h2>
               <p className="mt-1 text-sm text-neutral-500">
                 Create a property listing from your landlord workspace.
@@ -307,7 +319,10 @@ export default function Dashboard() {
                   No active lease connected yet.
                 </p>
               </div>
-              <div className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm">
+              <div
+                id="payments"
+                className="rounded-lg border border-neutral-200 bg-white p-5 shadow-sm"
+              >
                 <h2 className="text-lg font-semibold">Payments</h2>
                 <p className="mt-2 text-sm text-neutral-500">
                   Payment tracking will appear here when a lease is active.

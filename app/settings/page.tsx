@@ -70,6 +70,13 @@ export default function SettingsPage() {
       return;
     }
 
+    setProfile({ ...profile, role, phone });
+    window.dispatchEvent(
+      new CustomEvent("rentify-profile-role-change", {
+        detail: { role },
+      })
+    );
+
     alert("Profile updated successfully");
   }
 

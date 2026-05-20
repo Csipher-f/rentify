@@ -1,15 +1,89 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NotificationsDropdown from "@/components/NotificationsDropdown";
 import { supabase } from "@/src/lib/supabaseClient";
+import {
+  getNavItemsForRole,
+  type ProfileRole,
+} from "@/src/lib/navigation";
+
+type ProfileRoleChangeEvent = CustomEvent<{ role: ProfileRole | null }>;
 
 export default function Navbar() {
   const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [role, setRole] = useState<ProfileRole | null>(null);
+
+  const navItems = useMemo(() => getNavItemsForRole(role), [role]);
+
+  useEffect(() => {
+    let activeUserId: string | null = null;
+
+    const fetchRole = async (nextUserId: string | null) => {
+      activeUserId = nextUserId;
+      setUserId(nextUserId);
+
+      if (!nextUserId) {
+        setRole(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", nextUserId)
+        .maybeSingle();
+
+      setRole((data?.role as ProfileRole | null) ?? null);
+    };
+
+    supabase.auth.getUser().then(({ data }) => {
+      fetchRole(data.user?.id ?? null);
+    });
+
+    const {
+      data: { subscription: authSubscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      fetchRole(session?.user?.id ?? null);
+    });
+
+    const roleChangeChannel = supabase
+      .channel("navbar-profile-role")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+        },
+        (payload) => {
+          if (payload.new.id === activeUserId) {
+            setRole((payload.new.role as ProfileRole | null) ?? null);
+          }
+        }
+      )
+      .subscribe();
+
+    const handleRoleChange = (event: Event) => {
+      setRole((event as ProfileRoleChangeEvent).detail.role);
+    };
+
+    window.addEventListener("rentify-profile-role-change", handleRoleChange);
+
+    return () => {
+      authSubscription.unsubscribe();
+      supabase.removeChannel(roleChangeChannel);
+      window.removeEventListener("rentify-profile-role-change", handleRoleChange);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setUserId(null);
+    setRole(null);
     router.push("/auth");
   };
 
@@ -20,34 +94,28 @@ export default function Navbar() {
       </Link>
 
       <div className="flex flex-wrap gap-4 items-center">
-        <Link href="/dashboard" className="hover:underline">
-          Dashboard
-        </Link>
+        {navItems.map((item) => (
+          <Link key={item.href} href={item.href} className="hover:underline">
+            {item.label}
+          </Link>
+        ))}
 
-        <Link href="/properties" className="hover:underline">
-          Properties
-        </Link>
+        {userId ? (
+          <>
+            <NotificationsDropdown />
 
-        <Link href="/favorites" className="hover:underline">
-          Favorites
-        </Link>
-
-        <Link href="/messages" className="hover:underline">
-          Messages
-        </Link>
-
-        <Link href="/settings" className="hover:underline">
-          Settings
-        </Link>
-
-        <NotificationsDropdown />
-
-        <button
-          onClick={handleLogout}
-          className="bg-red-500 text-white px-4 py-2 rounded"
-        >
-          Logout
-        </button>
+            <button
+              onClick={handleLogout}
+              className="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <Link href="/auth" className="hover:underline">
+            Login
+          </Link>
+        )}
       </div>
     </nav>
   );
