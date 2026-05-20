@@ -22,6 +22,7 @@ export default function PropertyDetails() {
 
   const [property, setProperty] = useState<PropertyDetailsData | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [currentRole, setCurrentRole] = useState<string | null>(null)
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoriteBusy, setFavoriteBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -105,6 +106,14 @@ export default function PropertyDetails() {
       setUserId(currentUserId)
 
       if (currentUserId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', currentUserId)
+          .maybeSingle()
+
+        setCurrentRole((profile as { role?: string | null } | null)?.role ?? null)
+
         const { data: favorite, error: favoriteError } = await supabase
           .from('favorites')
           .select('id')
@@ -169,6 +178,9 @@ export default function PropertyDetails() {
     return <p className="p-6">Property not found</p>
   }
 
+  const ownsProperty = userId === property.owner_id
+  const showTenantActions = !ownsProperty && currentRole !== 'landlord'
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       {property.image_url && (
@@ -200,24 +212,54 @@ export default function PropertyDetails() {
         ₦{property.price}
       </p>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <button
-          onClick={contactLandlord}
-          className="rounded-lg bg-blue-600 px-6 py-3 text-white"
-        >
-          Contact Landlord
-        </button>
+      {ownsProperty ? (
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => router.push(`/dashboard/properties/${property.id}/edit`)}
+            className="rounded-lg bg-neutral-950 px-6 py-3 text-white"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => alert('Analytics will be available soon.')}
+            className="rounded-lg border border-neutral-300 px-6 py-3 font-medium text-neutral-900 transition hover:bg-neutral-100"
+          >
+            View Analytics
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/properties')}
+            className="rounded-lg border border-neutral-300 px-6 py-3 font-medium text-neutral-900 transition hover:bg-neutral-100"
+          >
+            Manage Listing
+          </button>
+        </div>
+      ) : showTenantActions ? (
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            onClick={contactLandlord}
+            className="rounded-lg bg-blue-600 px-6 py-3 text-white"
+          >
+            Contact Landlord
+          </button>
 
-        <button
-          type="button"
-          onClick={toggleFavorite}
-          disabled={favoriteBusy}
-          aria-pressed={isFavorite}
-          className="rounded-lg border border-neutral-300 px-6 py-3 font-medium text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isFavorite ? '♥ Saved' : '♡ Save property'}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            disabled={favoriteBusy}
+            aria-pressed={isFavorite}
+            className="rounded-lg border border-neutral-300 px-6 py-3 font-medium text-neutral-900 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isFavorite ? '♥ Saved' : '♡ Save property'}
+          </button>
+        </div>
+      ) : (
+        <div className="mt-6 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+          Landlords can manage their own listings from the landlord dashboard.
+        </div>
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ type PropertyCardProps = {
   isFavorite?: boolean
   favoriteBusy?: boolean
   actions?: ReactNode
+  detailsLabel?: string
   onToggleFavorite?: (propertyId: string) => void
 }
 
@@ -32,6 +33,7 @@ export default function PropertyCard({
   isFavorite = false,
   favoriteBusy = false,
   actions,
+  detailsLabel = 'View details',
   onToggleFavorite,
 }: PropertyCardProps) {
   return (
@@ -87,7 +89,7 @@ export default function PropertyCard({
           )}
 
           <p className="mt-auto pt-5 text-sm font-semibold text-neutral-950">
-            View details
+            {detailsLabel}
           </p>
         </div>
       </Link>

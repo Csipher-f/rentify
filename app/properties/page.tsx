@@ -9,6 +9,7 @@ type SortOption = 'newest' | 'price_asc'
 
 type Property = {
   id: string
+  owner_id: string
   title: string
   description: string | null
   price: number
@@ -93,7 +94,7 @@ export default function PropertiesPage() {
 
       let query = supabase
         .from('properties')
-        .select('id,title,description,price,location,image_url,created_at')
+        .select('id,owner_id,title,description,price,location,image_url,created_at')
 
       const searchTerm = normalizeSearch(appliedFilters.search)
 
@@ -236,6 +237,51 @@ export default function PropertiesPage() {
     })
   }
 
+  const contactLandlord = async (property: Property) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/auth')
+      return
+    }
+
+    if (user.id === property.owner_id) {
+      router.push(`/dashboard/properties/${property.id}/edit`)
+      return
+    }
+
+    const { data: existingConversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('property_id', property.id)
+      .eq('tenant_id', user.id)
+      .maybeSingle()
+
+    if (existingConversation) {
+      router.push(`/messages/${existingConversation.id}`)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        property_id: property.id,
+        landlord_id: property.owner_id,
+        tenant_id: user.id,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    router.push(`/messages/${data.id}`)
+  }
+
   return (
     <main className="min-h-screen bg-neutral-50 px-4 py-8 text-neutral-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -353,6 +399,15 @@ export default function PropertiesPage() {
                 isFavorite={favoriteIds.has(property.id)}
                 favoriteBusy={favoriteBusyIds.has(property.id)}
                 onToggleFavorite={toggleFavorite}
+                actions={
+                  <button
+                    type="button"
+                    onClick={() => contactLandlord(property)}
+                    className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    Contact Landlord
+                  </button>
+                }
               />
             ))}
           </div>

@@ -165,6 +165,7 @@ export default function DashboardPropertiesPage() {
               <PropertyCard
                 key={property.id}
                 property={property}
+                detailsLabel="Manage listing"
                 actions={
                   <>
                     <Link
@@ -173,6 +174,19 @@ export default function DashboardPropertiesPage() {
                     >
                       Edit
                     </Link>
+                    <Link
+                      href={`/properties/${property.id}`}
+                      className="inline-flex h-10 flex-1 items-center justify-center rounded-md border border-neutral-300 px-4 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+                    >
+                      Manage Listing
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => alert('Analytics will be available soon.')}
+                      className="h-10 flex-1 rounded-md border border-neutral-300 px-4 text-sm font-semibold text-neutral-900 transition hover:bg-neutral-100"
+                    >
+                      View Analytics
+                    </button>
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(property)}

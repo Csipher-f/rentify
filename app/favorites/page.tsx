@@ -6,15 +6,19 @@ import { useEffect, useState } from 'react'
 import PropertyCard, { PropertyCardData } from '@/components/PropertyCard'
 import { supabase } from '@/src/lib/supabaseClient'
 
+type FavoriteProperty = PropertyCardData & {
+  owner_id: string
+}
+
 type FavoriteRow = {
   id: string
   property_id: string
   created_at: string
-  property: PropertyCardData | null
+  property: FavoriteProperty | null
 }
 
 type FavoriteQueryRow = Omit<FavoriteRow, 'property'> & {
-  property: PropertyCardData | PropertyCardData[] | null
+  property: FavoriteProperty | FavoriteProperty[] | null
 }
 
 export default function FavoritesPage() {
@@ -51,6 +55,7 @@ export default function FavoritesPage() {
             created_at,
             property:properties (
               id,
+              owner_id,
               title,
               description,
               price,
@@ -118,6 +123,42 @@ export default function FavoritesPage() {
     })
   }
 
+  const contactLandlord = async (property: FavoriteProperty) => {
+    if (!userId) {
+      router.push('/auth')
+      return
+    }
+
+    const { data: existingConversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('property_id', property.id)
+      .eq('tenant_id', userId)
+      .maybeSingle()
+
+    if (existingConversation) {
+      router.push(`/messages/${existingConversation.id}`)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        property_id: property.id,
+        landlord_id: property.owner_id,
+        tenant_id: userId,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    router.push(`/messages/${data.id}`)
+  }
+
   return (
     <main className="min-h-screen bg-neutral-50 px-4 py-8 text-neutral-950 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -169,10 +210,19 @@ export default function FavoritesPage() {
             {favorites.map((favorite) => (
               <PropertyCard
                 key={favorite.id}
-                property={favorite.property as PropertyCardData}
+                property={favorite.property as FavoriteProperty}
                 isFavorite
                 favoriteBusy={busyIds.has(favorite.property_id)}
                 onToggleFavorite={removeFavorite}
+                actions={
+                  <button
+                    type="button"
+                    onClick={() => contactLandlord(favorite.property as FavoriteProperty)}
+                    className="h-10 flex-1 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
+                  >
+                    Contact Landlord
+                  </button>
+                }
               />
             ))}
           </div>
